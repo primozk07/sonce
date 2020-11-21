@@ -38,12 +38,17 @@
 
 // You should get Auth Token in the Blynk App.
 // Go to the Project Settings (nut icon).
-char auth[] = "yKwkICjMoN7yrLDeiDK_sm4CZuWyZcjR";
+char auth[] = "yKwkICjMoN7yrLDeiDK_sm4CZuWyZcjR";  //Blynk cloud ...ESP32 BME280 project
+//char auth[] = "55836bb660e54f3995d29ed3dfa3b2b0";    // blynk local server @10.10.10.112
 
 // Your WiFi credentials.
 // Set password to "" for open networks.
-char ssid[] = "D74a";
-char pass[] = "Yeti2015Rapid2016";
+//char ssid[] = "D74a";
+//char pass[] = "Yeti2015Rapid2016";
+char* ssid[] = {"iPhone 2017 p", "D74a",              "xx"}; //list a necessary wifi networks
+char* pass[] = {"hsiphone2017" , "Yeti2015Rapid2016", "XY"}; //list a passwords
+
+
 
 BlynkTimer timer;
 
@@ -117,19 +122,79 @@ BLYNK_WRITE(V9)
   */
 }
 
+//copied from https://community.blynk.cc/t/how-i-can-use-multiple-wifi-network/31667/15
 
 
+void MultyWiFiBlynkBegin() {
+  int ssid_count=0;
+  int ssid_mas_size = sizeof(ssid) / sizeof(ssid[0]);
+  do {
+    Serial.println("Trying to connect to wi-fi " + String(ssid[ssid_count]));
+    WiFi.begin(ssid[ssid_count], pass[ssid_count]);    
+    int WiFi_timeout_count=0;
+    while (WiFi.status() != WL_CONNECTED && WiFi_timeout_count<50) { //waiting 10 sec
+      delay(200);
+      Serial.print(".");
+      ++WiFi_timeout_count;
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("Connected to WiFi! Now I will check the connection to the Blynk server");
+      Blynk.config(auth);
+      Blynk.connect(5000); //waiting 5 sec
+    }
+    ++ssid_count; 
+  }  while (!Blynk.connected() && ssid_count<ssid_mas_size);
+  
+  if (!Blynk.connected() && ssid_count==ssid_mas_size) {
+    Serial.println("I could not connect to blynk Ignore and move on. but still I will try to connect to wi-fi " + String(ssid[ssid_count-1]));
+  }
+  if (!Blynk.connected()) {
+    Serial.println("Restarting in 10 sec...");
+    delay(10000);  // 10 sec
+    ESP.restart();
+  }
+}
 
-unsigned long delayTime=5000; //reading every 10k miliseconds
+
+// copied from https://github.com/khoih-prog/Blynk_WM/blob/master/examples/Blynk_WM_Template/Blynk_WM_Template.ino
+//void connectToWLANandBlynk()
+//{
+//  // Setup WLAN and Blynk
+//  Serial.print ( "\nSetting up WLAN and Blynk " );  
+//    Serial.println ( "Starting WiFi.begin (no WM)" );  
+//    WiFi.begin ( ssid, pass );
+//    Serial.println ( "... waiting a few seconds for WiFi ..." );    
+//      
+//    // REBOOT if we do not have a good WiFi connection
+//    if ( WiFi.status() != WL_CONNECTED )
+//    {
+//      Serial.println ( "Resetting in a few seconds...\n\n\n\n\n" );
+//      delay ( 3000 );  
+//      ESP.restart();
+//    } 
+//    
+//    // Configure and launch Blynk
+//    Blynk.config ( auth );
+//    Blynk.connect ( 2500 ); // Don't get stuck hanging for more than 2500 millis.
+//
+//  if ( Blynk.connected() ) 
+//  {
+//    Serial.println ( "Blynk connected just fine" ); 
+//    Serial.print   ( "  IP address  " ); Serial.println ( WiFi.localIP() ) ;
+//    Serial.print   ( "  MAC address " ); Serial.println ( WiFi.macAddress() );  
+//    Serial.println();  
+//  }
+//  else Serial.println ( "Blynk NOT CONNECTED \n\n" );  
+//} // end connectToWLANandBlynk
+
+
+unsigned long delayTime=5000; // miliseconds
 unsigned long timex;
 
 void setup()
 {
   // Debug console
   Serial.begin(9600);
-
-  Blynk.begin(auth, ssid, pass);
-  timer.setInterval(delayTime, myTimerEvent);
 
   terminal.clear();
 
@@ -158,25 +223,57 @@ void setup()
 
   // get average 0 current value
   int i;
-  int Average_loop = 100;
-  ACS712_ADC2_0_value = 0;
+  int Average_loop = 20;
+  ACS712_ADC2_0_value = 0; 
+  for (int i = 0; i < Average_loop; i++) {
+    Serial.print("  ADC0: "); Serial.print(ads.readADC_SingleEnded(0)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC1: "); Serial.print(ads.readADC_SingleEnded(1)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC2: "); Serial.print(ads.readADC_SingleEnded(2)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC3: "); Serial.print(ads.readADC_SingleEnded(3)*ADC_GAIN/1000.0*1); 
+    Serial.println();
+  }
   
-   for (int i = 0; i < Average_loop; i++) {
+//   for (int i = 0; i < Average_loop; i++) {
       ACS712_ADC2_0_value += ads.readADC_SingleEnded(2); 
       Serial.print(".");
       delay(50);
-   }
+//  }
    Serial.println(";");
-   ACS712_ADC2_0_value /= Average_loop;
+//   ACS712_ADC2_0_value /= Average_loop;
    ACS712_0Amp = ACS712_ADC2_0_value*ADC_GAIN/1000.0;
-   Serial.print("ADC2 @ 0 current: mV "); Serial.println(ACS712_0Amp*1000); Serial.println();
+   Serial.print("ADC2 @ 0 current: mV "); Serial.print(ACS712_0Amp*1000); 
+   Serial.print(" ADC rough value:"); Serial.print(ACS712_ADC2_0_value); 
+   Serial.print(" ADC rough value * 0,125:"); Serial.print(ACS712_ADC2_0_value*ADC_GAIN/1000.0); 
+   Serial.println();
+   Serial.print("ADC1: "); Serial.print(ads.readADC_SingleEnded(1)*ADC_GAIN/1000.0*1); 
+   Serial.println();
+
+  MultyWiFiBlynkBegin(); //instead Blynk.begin(auth, ssid, pass);
+  //connectToWLANandBlynk();
+  // Blynk.begin(auth, ssid, pass);
+  ////Blynk.begin(auth, ssid, pass, IPAddress(10,10,10,112));
+  timer.setInterval(delayTime, myTimerEvent);
+
+
 }
 
 void loop()
 {
+    if ( WiFi.status() != WL_CONNECTED )
+    {
+      Serial.println ( "loop: No WiFi - Resetting in 10 seconds...\n\n\n\n\n" );
+      delay ( 10000 );  
+      ESP.restart();
+    } 
+
   Blynk.run();
   timer.run(); // Initiates BlynkTimer
 }
+
+// preveri tudi opcijo z Blynk connect + timer 
+// https://community.blynk.cc/t/solved-how-to-run-blynk-run-only-when-wifi-connection-is-established/6492/13
+
+
 
 void myTimerEvent()
 {
@@ -212,24 +309,35 @@ void Blynk_PrintValues()
 
   adc0=0; adc1=0;adc2=0;adc3=0;
   //volt0=0; volt1=0;volt2=0;volt3=0;
-  int Average_loop = 10;
+
+    Serial.print("1.1 ADC0: "); Serial.print(ads.readADC_SingleEnded(0)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC1: "); Serial.print(ads.readADC_SingleEnded(1)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC2: "); Serial.print(ads.readADC_SingleEnded(2)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC3: "); Serial.print(ads.readADC_SingleEnded(3)*ADC_GAIN/1000.0*1); 
+    Serial.println();
+        Serial.print("1.2  ADC0: "); Serial.print(ads.readADC_SingleEnded(0)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC1: "); Serial.print(ads.readADC_SingleEnded(1)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC2: "); Serial.print(ads.readADC_SingleEnded(2)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC3: "); Serial.print(ads.readADC_SingleEnded(3)*ADC_GAIN/1000.0*1); 
+    Serial.println();
+
+    adc0 = ads.readADC_SingleEnded(0); 
+    adc1 = ads.readADC_SingleEnded(1);
+    adc2 = ads.readADC_SingleEnded(2); 
+    adc3 = ads.readADC_SingleEnded(3); 
   
-  //read 10x to average
-  for (int i = 0; i < Average_loop; i++) {
-    adc0 += ads.readADC_SingleEnded(0); 
-    adc1 += ads.readADC_SingleEnded(1);
-    adc2 += ads.readADC_SingleEnded(2); 
-    adc3 += ads.readADC_SingleEnded(3); 
-    delay(50);
-  }
-  //volt0/=Average_loop; volt1/=Average_loop; volt2/=Average_loop; volt3/=Average_loop;
-  
-  volt0 = adc0/Average_loop*ADC_GAIN/1000.0*(Voltage_divider_R1+Voltage_divider_R2)/Voltage_divider_R2;
-  volt1 = adc1/Average_loop*ADC_GAIN/1000.0*1;    //(Voltage_divider_R1+Voltage_divider_R2)/Voltage_divider_R2;
-  volt2 = adc2/Average_loop*ADC_GAIN/1000.0; // ACS712 connected
-  volt3 = adc3/Average_loop*ADC_GAIN/1000.0; // reference voltage VDD on ADS1115
-   
-  Serial.print("Read execution time (10x ADC read: "); Serial.println(millis()-timex);
+  volt0 = adc0*ADC_GAIN/1000.0*(Voltage_divider_R1+Voltage_divider_R2)/Voltage_divider_R2;
+  volt1 = adc1*ADC_GAIN/1000.0*1;    //(Voltage_divider_R1+Voltage_divider_R2)/Voltage_divider_R2;
+  volt2 = adc2*ADC_GAIN/1000.0; // ACS712 connected
+  volt3 = adc3*ADC_GAIN/1000.0; // reference voltage VDD on ADS1115
+
+    Serial.print("1.3  ADC0: "); Serial.print(ads.readADC_SingleEnded(0)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC1: "); Serial.print(ads.readADC_SingleEnded(1)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC2: "); Serial.print(ads.readADC_SingleEnded(2)*ADC_GAIN/1000.0*1); 
+    Serial.print("  ADC3: "); Serial.print(ads.readADC_SingleEnded(3)*ADC_GAIN/1000.0*1); 
+    Serial.println();
+
+  Serial.print("Read execution time: "); Serial.println(millis()-timex);
 
   Serial.print("  ADC0 = ");  Serial.print(RoundX(volt0,1)); Blynk.virtualWrite(V4, RoundX(volt0,1)); Serial.print("V"); 
   Serial.print("  ADC1 = ");          Serial.print(RoundX(volt1,1)); Blynk.virtualWrite(V5, RoundX(volt1,1)); //Serial.println("V"); 
